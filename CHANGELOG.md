@@ -1,5 +1,23 @@
 # Changelog — Nhắc việc chu kỳ
 
+## [0.5.0] - 2026-09-19 — Tài khoản theo user
+### Added
+- `api/auth.js` + `api/_auth.js`: đăng ký/đăng nhập (scrypt, session 180 ngày, chống dò mật khẩu).
+- `api/sync.js`: list theo user, đồng bộ đa máy (last-writer-wins theo `savedAt`).
+- `api/subscribe.js`/`cron.js`: gắn subscription và gửi push theo từng user.
+- PWA: nút 👤 + màn hình Tài khoản, chuông yêu cầu đăng nhập, seed demo không lấn bản server.
+### Verified
+- Logic lõi 18/18 PASS, PWA serve 200 local. Auth/push cần Vercel env + KV thật để test end-to-end.
+
+## [0.4.0] - 2026-09-18 — Web Push (đẩy nền 7h sáng)
+### Added
+- `api/subscribe.js` + `api/_kv.js`: nhận push subscription + copy task vào Vercel KV (TTL 90 ngày).
+- `api/cron.js`: Vercel Cron `0 0 * * *` quét hạn (logic floor giống app) và gửi 1 push tóm tắt/ngày qua `web-push`; tự dọn sub hết hạn/bị thu hồi.
+- PWA: `sw.js` nghe sự kiện `push`, `app.js` đăng ký PushManager (VAPID) + tự đồng bộ task lên backend.
+- `package.json` (`web-push`), `vercel.json` thêm `crons`. Hướng dẫn setup KV + env trong `pwa/README.md`.
+### Verified
+- Logic lõi 18/18 PASS, PWA serve 200 local. Push end-to-end cần Vercel env + KV thật để test.
+
 ## [0.3.0] - 2026-09-18 — PWA
 ### Added
 - `pwa/` bản web cài được: `index.html`, `styles.css` (design Nhà Gọn), `app.js` (port recurrence floor + CRUD localStorage + hash router + Notification API), `manifest.webmanifest`, `sw.js` (cache-first), `icon.svg`, `README.md`.

@@ -1,5 +1,5 @@
 /* Service Worker — App shell cache-first, versioned. */
-const CACHE = 'nhac-viec-v5';
+const CACHE = 'nhac-viec-v6';
 const SHELL = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', (e) => {
@@ -18,7 +18,14 @@ self.addEventListener('fetch', (e) => {
     return res;
   }).catch(() => caches.match('./index.html'))));
 });
-// Nhắc việc khi có push (phase sau dùng backend). Hiện tại PWA dùng Notification API từ app.js.
+// Web Push từ backend (/api/cron lúc 7h sáng). Payload: {title, body}.
+self.addEventListener('push', (e) => {
+  let data = { title: 'Nhắc việc', body: 'Có việc đến hạn.' };
+  try { if (e.data) data = { ...data, ...e.data.json() }; } catch {}
+  e.waitUntil(self.registration.showNotification(data.title, {
+    body: data.body, icon: './icon.svg', badge: './icon.svg', tag: 'nhac-viec-digest',
+  }));
+});
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   e.waitUntil(clients.matchAll({ type: 'window' }).then((list) => {

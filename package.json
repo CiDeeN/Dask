@@ -1,0 +1,9 @@
+{
+  "name": "nhac-viec-push",
+  "private": true,
+  "version": "0.4.0",
+  "description": "Backend Web Push cho PWA nhắc việc chu kỳ (Vercel serverless)",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

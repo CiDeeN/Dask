@@ -1,5 +1,7 @@
 // PWA logic — port 1:1 từ lib/src/features/reminders/recurrence.dart (floor + grace/remindBefore).
 const DAY = 86400000, KEY = 'habit_pwa_v1';
+const PUSH_KEY = 'habit_push_sub';
+const VAPID_PUBLIC = 'BH9R5rTTi21USFRWsV-0RYkxjz-V5_siaqDpi7qLSBb4WBpvXb9n-sH5jMSYn-5RbFMojhbBYmFKJifN0oMUw7k';
 const $ = (s) => document.querySelector(s);
 
 const TEMPLATES = [
@@ -14,7 +16,60 @@ const TEMPLATES = [
 ];
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || { tasks: [] }; } catch { return { tasks: [] }; } };
-const save = (d) => localStorage.setItem(KEY, JSON.stringify(d));
+const save = (d) => { localStorage.setItem(KEY, JSON.stringify(d)); localStorage.setItem(SAVED_KEY, String(Date.now())); queueSync(); };
+const SAVED_KEY = 'habit_saved_at';
+const SES_KEY = 'habit_session';
+const getSes = () => { try { return JSON.parse(localStorage.getItem(SES_KEY) || 'null'); } catch { return null; } };
+const getTok = () => (getSes() || {}).token || null;
+const clearSes = () => localStorage.removeItem(SES_KEY);
+let _syncT = null;
+function queueSync() {
+  clearTimeout(_syncT);
+  _syncT = setTimeout(syncPush, 1500);
+}
+// Đồng bộ list của USER đang đăng nhập lên server (last-writer-wins theo savedAt).
+async function syncPush() {
+  try {
+    if (!getTok()) return;
+    const { tasks } = load();
+    const r = await apiReq('/api/sync', 'PUT', { tasks, savedAt: +(localStorage.getItem(SAVED_KEY) || 0) });
+    if (r.stale) {
+      localStorage.setItem(KEY, JSON.stringify({ tasks: r.tasks || [] }));
+      localStorage.setItem(SAVED_KEY, String(r.savedAt || 0));
+      render();
+    }
+  } catch {}
+}
+// Kéo list server về khi đăng nhập (máy mới / máy khác).
+async function pullSync() {
+  const r = await apiReq('/api/sync', 'GET');
+  const localSaved = +(localStorage.getItem(SAVED_KEY) || 0);
+  if ((r.savedAt || 0) > localSaved) {
+    localStorage.setItem(KEY, JSON.stringify({ tasks: r.tasks || [] }));
+    localStorage.setItem(SAVED_KEY, String(r.savedAt || 0));
+  } else if (localSaved > (r.savedAt || 0)) {
+    const { tasks } = load();
+    await apiReq('/api/sync', 'PUT', { tasks, savedAt: localSaved });
+  }
+  // Gắn lại push subscription của máy này vào user vừa đăng nhập.
+  try {
+    const sub = JSON.parse(localStorage.getItem(PUSH_KEY) || 'null');
+    if (sub) await apiReq('/api/subscribe', 'POST', { subscription: sub });
+  } catch {}
+}
+async function apiReq(path, method, body) {
+  const r = await fetch(path, {
+    method, headers: { 'Content-Type': 'application/json', ...(getTok() ? { Authorization: 'Bearer ' + getTok() } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (r.status === 401) { clearSes(); const e = new Error('het phien, dang nhap lai'); e.auth = true; throw e; }
+  if (!r.ok) throw new Error('http ' + r.status);
+  return r.json();
+}
+function b64url(s) {
+  const pad = '='.repeat((4 - (s.length % 4)) % 4);
+  return Uint8Array.from(atob((s + pad).replaceAll('-', '+').replaceAll('_', '/')), (c) => c.charCodeAt(0));
+}
 
 // --- recurrence (canonical: floor, giống Dart) ---
 const nextDue = (last, cycle) => last + cycle * DAY;
@@ -42,6 +97,7 @@ function render() {
   const h = location.hash || '#/';
   const v = $('#view');
   if (h.startsWith('#/detail/')) return renderDetail(v, decodeURIComponent(h.slice(9)));
+  if (h.startsWith('#/account')) return renderAccount(v);
   if (h.startsWith('#/form')) return renderForm(v, new URLSearchParams(h.split('?')[1] || '').get('edit'));
   return renderHome(v);
 }
@@ -53,6 +109,7 @@ function renderHome(v) {
   const today = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'numeric' });
   v.innerHTML = `<header class="hero"><div class="topbar"><div class="logo" aria-hidden="true"></div>
     <div><h1>Nhắc việc</h1><p style="text-transform:capitalize">${today}${tasks.length ? ` · ${over} quá hạn · ${up} sắp tới` : ''}</p></div>
+    <button class="userbtn" id="account" aria-label="Tài khoản">👤</button>
     <button class="bell" id="notif" title="Bật nhắc việc" aria-label="Bật nhắc việc">🔔</button></div></header>
     <main><div id="list"></div>
     <div class="sec"><h3>Mẫu có sẵn</h3><small>chạm để thêm</small></div>
@@ -66,6 +123,7 @@ function renderHome(v) {
     </nav>`;
   v.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { filter = b.dataset.tab; render(); });
   $('#add').onclick = () => location.hash = '#/form';
+  $('#account').onclick = () => location.hash = '#/account';
   $('#notif').onclick = enableNotif;
   v.querySelectorAll('[data-t]').forEach((el) => el.onclick = () => addFromTemplate(+el.dataset.t));
   const box = v.querySelector('#list');
@@ -92,10 +150,9 @@ function card(t, now) {
   d.className = 'tcard ' + cls;
   d.setAttribute('role', 'button');
   d.setAttribute('tabindex', '0');
-  const flag = st.s === 'overdue' ? '🚩 ' : '';
   d.innerHTML = `<button class="cbox donebtn" aria-label="Đánh dấu xong: ${esc(t.title)}"></button>
     <div class="tbody"><div class="ttitle">${esc(t.title)}</div>
-    <div class="meta"><span class="mdate">${flag}Hạn ${fmt(t.nextDueAt)} · ${st.txt}</span><span class="mdot">·</span><span>${t.icon} ${t.cycleDays} ngày/lần</span></div></div>`;
+    <div class="meta"><span class="mdate">Hạn ${fmt(t.nextDueAt)} · ${st.txt}</span><span class="mdot">·</span><span>mỗi ${t.cycleDays} ngày</span></div></div>`;
   const open = () => location.hash = '#/detail/' + encodeURIComponent(t.id);
   d.onclick = (e) => { if (!e.target.closest('.donebtn')) open(); };
   d.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('.donebtn')) { e.preventDefault(); open(); } };
@@ -143,6 +200,47 @@ function renderForm(v, editId) {
     save(d); location.hash = '#/'; checkDue();
   };
 }
+function renderAccount(v) {
+  const ses = getSes();
+  if (ses && ses.token) {
+    v.innerHTML = `<main><a class="back" href="#/">← Trang chủ</a>
+      <div class="sec"><h3>Tài khoản</h3></div>
+      <div class="fcard"><div class="kv" style="margin:0;border:none;box-shadow:none;padding:0">
+      <div><span>Đăng nhập là</span><b>${esc(ses.username || '')}</b></div>
+      <div><span>Danh sách</span><b>riêng của bạn, đồng bộ đa máy</b></div></div>
+      <button class="cta" id="out">Đăng xuất</button></div>
+      <p><small class="mut">Đăng xuất sẽ xóa list trên máy này (bản server vẫn giữ).</small></p></main>`;
+    $('#out').onclick = () => {
+      clearSes();
+      localStorage.removeItem(KEY); localStorage.removeItem(SAVED_KEY);
+      location.hash = '#/';
+    };
+    return;
+  }
+  v.innerHTML = `<main><a class="back" href="#/">← Trang chủ</a>
+    <div class="sec"><h3>Tài khoản</h3><small>mỗi người 1 danh sách riêng</small></div>
+    <form class="fcard" id="auth">
+    <label class="fl" for="u">Tên đăng nhập</label><input id="u" required minlength="2" maxlength="30" autocomplete="username" placeholder="vd: lan">
+    <label class="fl" for="pw">Mật khẩu (≥ 6 ký tự)</label><input id="pw" type="password" required minlength="6" autocomplete="current-password">
+    <div class="row" style="margin-top:14px"><button class="cta" style="margin-top:0" type="submit" data-a="login">Đăng nhập</button><button class="ghost" type="submit" data-a="register">Đăng ký</button></div>
+    <p><small class="mut" id="ams"></small></p></form></main>`;
+  let action = 'login';
+  v.querySelectorAll('[data-a]').forEach((b) => b.onclick = () => { action = b.dataset.a; });
+  $('#auth').onsubmit = async (e) => {
+    e.preventDefault();
+    const msg = $('#ams');
+    msg.textContent = 'Đang xử lý...';
+    try {
+      const r = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, username: $('#u').value.trim(), password: $('#pw').value }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || ('Lỗi ' + r.status));
+      localStorage.setItem(SES_KEY, JSON.stringify({ token: d.token, username: d.username }));
+      await pullSync();
+      location.hash = '#/';
+    } catch (err) { msg.textContent = 'Lỗi: ' + (err.message || err); }
+  };
+}
 function addFromTemplate(i) {
   const [title, icon, cycle] = TEMPLATES[i], d = load(), now = Date.now();
   d.tasks.push({ id: uid(), title, icon, cycleDays: cycle, lastDoneAt: now, nextDueAt: nextDue(now, cycle), remindBefore: Math.min(7, Math.max(1, Math.floor(cycle / 4))), grace: 0, snoozedUntil: null, isActive: true });
@@ -155,8 +253,20 @@ function doDone(id, goHome) {
 }
 async function enableNotif() {
   if (!('Notification' in window)) return alert('Trình duyệt không hỗ trợ notification.');
+  if (!getTok()) { location.hash = '#/account'; return alert('Đăng nhập trước để nhắc đúng danh sách của bạn.'); }
   const p = await Notification.requestPermission();
-  alert(p === 'granted' ? 'Đã bật nhắc việc! Mở app mỗi ngày để nhận nhắc.' : 'Chưa cấp quyền: ' + p);
+  if (p !== 'granted') return alert('Chưa cấp quyền: ' + p);
+  // Đăng ký đẩy nền (Web Push) — gắn subscription vào user đang đăng nhập.
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64url(VAPID_PUBLIC).buffer });
+    const sj = sub.toJSON ? sub.toJSON() : sub;
+    localStorage.setItem(PUSH_KEY, JSON.stringify(sj));
+    await apiReq('/api/subscribe', 'POST', { subscription: sj });
+    alert('Đã bật nhắc việc! Kể cả khi tắt app, bạn vẫn được nhắc lúc 7h sáng.');
+  } catch (e) {
+    alert(e && e.auth ? 'Hết phiên, hãy đăng nhập lại.' : 'Đã bật nhắc khi mở app. (Đẩy nền chưa sẵn sàng: backend /api hoặc VAPID chưa cấu hình.)');
+  }
   checkDue();
 }
 function checkDue() {
@@ -176,6 +286,7 @@ if (!localStorage.getItem(KEY)) {
   const now = Date.now();
   const mk = (ti, ago) => { const [title, icon, cycle] = TEMPLATES[ti], last = now - ago * DAY; return { id: uid(), title, icon, cycleDays: cycle, lastDoneAt: last, nextDueAt: nextDue(last, cycle), remindBefore: 2, grace: 0, snoozedUntil: null, isActive: true }; };
   save({ tasks: [mk(0, 6), mk(6, 45), mk(1, 12)] });
+  localStorage.removeItem(SAVED_KEY); // seed demo không đóng dấu thời gian để bản server (nếu có) luôn thắng khi đăng nhập
 }
 render(); checkDue();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
