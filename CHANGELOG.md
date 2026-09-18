@@ -1,5 +1,12 @@
 # Changelog — Nhắc việc chu kỳ
 
+## [0.3.0] - 2026-09-18 — PWA
+### Added
+- `pwa/` bản web cài được: `index.html`, `styles.css` (design Nhà Gọn), `app.js` (port recurrence floor + CRUD localStorage + hash router + Notification API), `manifest.webmanifest`, `sw.js` (cache-first), `icon.svg`, `README.md`.
+- Seed 3 việc đầu, 15 template VN 1 chạm, seed aha-moment 30s.
+### Verified
+- Manifest JSON hợp lệ (2 icons), `http.server` serve `index.html` 200, logic lõi 18/18 PASS.
+
 ## [0.2.0] - 2026-09-18 — Designer + Tích hợp
 ### Added
 - Design system "Nhà Gọn" (`AppTheme`): palette teal #00695C, urgency 5 mức, `AppSpacing`/`AppRadius`, gradient + soft shadow, dark mode (docs/DESIGN.md).

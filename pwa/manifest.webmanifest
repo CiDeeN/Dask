@@ -1,0 +1,16 @@
+{
+  "name": "Nhắc việc chu kỳ",
+  "short_name": "Nhắc việc",
+  "description": "Nhắc việc nhà định kỳ: thay bàn chải 90 ngày, dọn toilet 7 ngày...",
+  "lang": "vi",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F8F7",
+  "theme_color": "#00695C",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
