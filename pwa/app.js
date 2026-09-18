@@ -52,15 +52,19 @@ function renderHome(v) {
   const up = sts.filter((s) => s.s === 'upcoming' || s.s === 'dueToday').length;
   const list = tasks.filter((t, i) => {
     const s = sts[i].s;
-    return filter === 'all' || (filter === 'over' && (s === 'overdue' || s === 'dueGrace')) || (filter === 'up' && (s === 'upcoming' || s.s === 'dueToday')) || (filter === 'ok' && s.s === 'ok');
+    return filter === 'all' || (filter === 'over' && (s === 'overdue' || s === 'dueGrace')) || (filter === 'up' && (s === 'upcoming' || s === 'dueToday')) || (filter === 'ok' && s === 'ok');
   });
-  v.innerHTML = `<header class="hero"><h1>Việc nhà định kỳ</h1><p>${tasks.length ? `${over} quá hạn, ${up} sắp tới` : 'Chưa có việc nào — thêm việc đầu tiên!'}</p>
-    <div class="pills"><span class="pill">Tổng ${tasks.length}</span><span class="pill">Quá hạn ${over}</span><span class="pill">Sắp tới ${up}</span></div></header>
-    <main><div class="filters">${[['all','Tất cả'],['over','Quá hạn'],['up','Sắp tới'],['ok','An toàn']].map(([k,l]) => `<button class="chip${filter===k?' on':''}" data-f="${k}">${l}</button>`).join('')}</div>
-    <div><button class="chip" id="notif">🔔 Bật nhắc việc</button> <small class="mut">PWA: nhắc khi mở app + notification</small></div>
-    <div id="list">${list.length ? '' : `<div class="empty"><div style="font-size:48px">🏡</div><p>Chưa có việc nào.<br>Chọn mẫu bên dưới hoặc bấm + .</p></div>`}</div>
-    <h3>Mẫu có sẵn (1 chạm)</h3><div>${TEMPLATES.map((t,i)=>`<div class="tpl" data-t="${i}"><span style="font-size:22px">${t[1]}</span><div><b>${t[0]}</b> · ${t[2]} ngày<br><small class="mut">${t[3]}</small></div></div>`).join('')}</div></main>
-    <button class="fab" id="add">+ Thêm việc</button>`;
+  const fcount = (k) => k === 'all' ? tasks.length : k === 'over' ? over : k === 'up' ? up : tasks.length - over - up;
+  v.innerHTML = `<header class="hero"><div class="topbar"><div class="logo">🧹</div>
+    <div><h1>Việc nhà định kỳ</h1><p>${tasks.length ? `${over} quá hạn · ${up} sắp tới` : 'Bắt đầu trong 30 giây!'}</p></div>
+    <button class="bell" id="notif" title="Bật nhắc việc">🔔</button></div>
+    <div class="stats"><div class="stat"><b>${tasks.length}</b><span>Theo dõi</span></div><div class="stat"><b>${over}</b><span>Quá hạn</span></div><div class="stat"><b>${up}</b><span>Sắp tới</span></div></div></header>
+    <main><div class="sec"><h3>Danh sách</h3><small>${list.length} việc</small></div>
+    <div class="filters">${[['all','Tất cả'],['over','Quá hạn'],['up','Sắp tới'],['ok','An toàn']].map(([k,l]) => `<button class="chip${filter===k?' on':''}" data-f="${k}">${l} · ${fcount(k)}</button>`).join('')}</div>
+    <div id="list">${list.length ? '' : `<div class="empty"><div class="big">🏡</div><p><b>Nhà đang gọn!</b><br><small class="mut">Chọn mẫu bên dưới hoặc bấm + để thêm việc.</small></p></div>`}</div>
+    <div class="sec"><h3>Mẫu có sẵn</h3><small>chạm để thêm</small></div>
+    <div class="tplgrid">${TEMPLATES.map((t,i)=>`<div class="tpl" data-t="${i}"><span class="e">${t[1]}</span><div><b>${t[0]}</b><br><small class="mut">${t[2]} ngày · ${t[3]}</small></div></div>`).join('')}</div></main>
+    <button class="fab" id="add">＋ Thêm việc</button>`;
   v.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filter = b.dataset.f; render(); });
   $('#add').onclick = () => location.hash = '#/form';
   $('#notif').onclick = enableNotif;
@@ -72,13 +76,14 @@ function card(t, now) {
   const st = statusOf(t, now), c = colorOf(st.s);
   const donePct = st.diff < 0 ? 1 : Math.min(1, Math.max(0, (t.cycleDays - st.diff) / t.cycleDays));
   const d = document.createElement('div');
-  d.className = 'card';
-  d.innerHTML = `<div class="icon" style="background:linear-gradient(135deg,${c},${c}88)">${t.icon}</div>
-    <div class="body"><div class="title">${esc(t.title)}</div>
-    <span class="badge" style="color:${c};border-color:${c}55;background:${c}22"><span class="dot" style="background:${c}"></span>${st.txt}</span>
-    <div class="prog"><i style="width:${Math.round(donePct*100)}%;background:${c}"></i></div>
-    <div class="cap">Hạn ${fmt(t.nextDueAt)} · chu kỳ ${t.cycleDays} ngày</div></div>
-    <button class="donebtn" title="Đánh dấu xong">✅</button>`;
+  d.className = 'tcard';
+  d.style.setProperty('--uc', c);
+  d.innerHTML = `<div class="trow"><div class="ticon" style="background:linear-gradient(135deg,${c},${c}99)">${t.icon}</div>
+    <div class="tbody"><div class="ttitle">${esc(t.title)}</div>
+    <span class="badge"><span class="dot"></span>${st.txt}</span></div></div>
+    <div class="prog"><i style="width:${Math.round(donePct*100)}%"></i></div>
+    <div class="tfoot"><span class="cap">Hạn ${fmt(t.nextDueAt)} · chu kỳ ${t.cycleDays} ngày</span>
+    <button class="donebtn" title="Đánh dấu xong">✓ Xong</button></div>`;
   d.onclick = (e) => { if (!e.target.closest('.donebtn')) location.hash = '#/detail/' + encodeURIComponent(t.id); };
   d.querySelector('.donebtn').onclick = () => doDone(t.id);
   return d;
@@ -87,11 +92,17 @@ function renderDetail(v, id) {
   const d = load(), t = d.tasks.find((x) => x.id === id);
   if (!t) { v.innerHTML = `<main><div class="empty"><p>Không tìm thấy.</p><a href="#/">Về trang chủ</a></div></main>`; return; }
   const st = statusOf(t), c = colorOf(st.s);
-  v.innerHTML = `<main><p><a href="#/">← Trang chủ</a></p><div class="card"><div class="icon" style="background:linear-gradient(135deg,${c},${c}88)">${t.icon}</div>
-    <div class="body"><div class="title">${esc(t.title)}</div><div class="cap">Lần cuối: ${t.lastDoneAt ? fmt(t.lastDoneAt) : 'chưa ghi'} · Hạn ${fmt(t.nextDueAt)}</div></div></div>
-    <div class="card"><div class="body">Trạng thái: <b style="color:${c}">${st.txt}</b><br><small class="mut">Nhắc trước ${t.remindBefore} ngày · grace ${t.grace} ngày</small></div></div>
-    <div class="row"><button class="cta" id="done">Đánh dấu đã xong</button><button class="chip" id="snz">Hoãn 1 ngày</button></div>
-    <div class="row" style="margin-top:8px"><button class="chip" id="edit">Sửa</button><button class="chip" id="del">Xóa</button></div></main>`;
+  v.innerHTML = `<main><a class="back" href="#/">← Trang chủ</a>
+    <div class="dhero" style="--uc:${c}"><div class="big">${t.icon}</div><h2>${esc(t.title)}</h2><p>${st.txt} · Hạn ${fmt(t.nextDueAt)}</p></div>
+    <div class="kv">
+      <div><span>Lần cuối làm</span><b>${t.lastDoneAt ? fmt(t.lastDoneAt) : 'chưa ghi'}</b></div>
+      <div><span>Chu kỳ</span><b>${t.cycleDays} ngày</b></div>
+      <div><span>Nhắc trước</span><b>${t.remindBefore} ngày</b></div>
+      <div><span>Trạng thái</span><b style="color:${c}">${st.txt}</b></div>
+    </div>
+    <button class="cta" id="done">✓ Đánh dấu đã xong</button>
+    <div class="row" style="margin-top:10px"><button class="ghost" id="snz">Hoãn 1 ngày</button><button class="ghost" id="edit">Sửa</button></div>
+    <div style="margin-top:10px"><button class="ghost danger" id="del">Xóa việc này</button></div></main>`;
   $('#done').onclick = () => doDone(id, true);
   $('#snz').onclick = () => { d.tasks = d.tasks.map((x) => x.id === id ? { ...x, snoozedUntil: Date.now() + DAY } : x); save(d); location.hash = '#/'; };
   $('#edit').onclick = () => location.hash = '#/form?edit=' + encodeURIComponent(id);
@@ -99,12 +110,14 @@ function renderDetail(v, id) {
 }
 function renderForm(v, editId) {
   const d = load(), t = editId ? d.tasks.find((x) => x.id === editId) : null;
-  v.innerHTML = `<main><p><a href="#/">← Trang chủ</a></p><h2>${t ? 'Sửa việc' : 'Thêm việc'}</h2>
-    <form class="card" id="f"><input id="title" required maxlength="60" placeholder="VD: Dọn toilet" value="${esc(t?.title || '')}">
-    <div class="row"><select id="icon">${['🧹','🚽','🛏️','🪥','💧','🌱','🧊','🛵','💊','🦷'].map((e)=>`<option ${t?.icon===e?'selected':''}>${e}</option>`).join('')}</select>
-    <input id="cycle" type="number" min="1" max="730" value="${t?.cycleDays || 7}" title="Chu kỳ (ngày)"></div>
-    <div class="row"><input id="last" type="date" value="${t?.lastDoneAt ? iso(t.lastDoneAt) : iso(Date.now())}" title="Lần cuối"><input id="rb" type="number" min="0" max="30" value="${t?.remindBefore ?? 2}" title="Nhắc trước (ngày)"></div>
-    <button class="cta" type="submit">Lưu</button></form></main>`;
+  v.innerHTML = `<main><a class="back" href="#/">← Trang chủ</a><h2 style="margin:4px 0 2px">${t ? 'Sửa việc' : 'Thêm việc mới'}</h2>
+    <small class="mut">Chỉ cần gõ tên là xong — chu kỳ mặc định 7 ngày.</small>
+    <form class="fcard" id="f" style="margin-top:12px">
+    <label class="fl">Tên việc</label><input id="title" required maxlength="60" placeholder="VD: Dọn toilet" value="${esc(t?.title || '')}">
+    <div class="row"><div><label class="fl">Icon</label><select id="icon">${['🧹','🚽','🛏️','🪥','💧','🌱','🧊','🛵','💊','🦷'].map((e)=>`<option ${t?.icon===e?'selected':''}>${e}</option>`).join('')}</select></div>
+    <div><label class="fl">Chu kỳ (ngày)</label><input id="cycle" type="number" min="1" max="730" value="${t?.cycleDays || 7}"></div></div>
+    <div class="row"><div><label class="fl">Lần cuối</label><input id="last" type="date" value="${t?.lastDoneAt ? iso(t.lastDoneAt) : iso(Date.now())}"></div><div><label class="fl">Nhắc trước</label><input id="rb" type="number" min="0" max="30" value="${t?.remindBefore ?? 2}"></div></div>
+    <button class="cta" type="submit">Lưu việc</button></form></main>`;
   $('#f').onsubmit = (e) => {
     e.preventDefault();
     const title = $('#title').value.trim(); if (!title) return;
