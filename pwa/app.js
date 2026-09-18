@@ -60,7 +60,7 @@ function renderHome(v) {
     <button class="bell" id="notif" title="Bật nhắc việc">🔔</button></div>
     <div class="stats"><div class="stat"><b>${tasks.length}</b><span>Theo dõi</span></div><div class="stat"><b>${over}</b><span>Quá hạn</span></div><div class="stat"><b>${up}</b><span>Sắp tới</span></div></div></header>
     <main><div class="sec"><h3>Danh sách</h3><small>${list.length} việc</small></div>
-    <div class="filters">${[['all','Tất cả'],['over','Quá hạn'],['up','Sắp tới'],['ok','An toàn']].map(([k,l]) => `<button class="chip${filter===k?' on':''}" data-f="${k}">${l} · ${fcount(k)}</button>`).join('')}</div>
+    <div class="filters">${[['all','Tất cả'],['over','Quá hạn'],['up','Sắp tới'],['ok','An toàn']].map(([k,l]) => `<button class="chip${filter===k?' on':''}" data-f="${k}">${l}<span class="chip-n">${fcount(k)}</span></button>`).join('')}</div>
     <div id="list">${list.length ? '' : `<div class="empty"><div class="big">🏡</div><p><b>Nhà đang gọn!</b><br><small class="mut">Chọn mẫu bên dưới hoặc bấm + để thêm việc.</small></p></div>`}</div>
     <div class="sec"><h3>Mẫu có sẵn</h3><small>chạm để thêm</small></div>
     <div class="tplgrid">${TEMPLATES.map((t,i)=>`<div class="tpl" data-t="${i}"><span class="e">${t[1]}</span><div><b>${t[0]}</b><br><small class="mut">${t[2]} ngày · ${t[3]}</small></div></div>`).join('')}</div></main>
@@ -73,17 +73,17 @@ function renderHome(v) {
   list.forEach((t) => box.appendChild(card(t, now)));
 }
 function card(t, now) {
-  const st = statusOf(t, now), c = colorOf(st.s);
+  const st = statusOf(t, now);
+  const cls = st.s === 'overdue' ? 'st-over' : (st.s === 'dueGrace' || st.s === 'dueToday') ? 'st-due' : st.s === 'upcoming' ? 'st-warn' : 'st-ok';
   const donePct = st.diff < 0 ? 1 : Math.min(1, Math.max(0, (t.cycleDays - st.diff) / t.cycleDays));
   const d = document.createElement('div');
-  d.className = 'tcard';
-  d.style.setProperty('--uc', c);
-  d.innerHTML = `<div class="trow"><div class="ticon" style="background:linear-gradient(135deg,${c},${c}99)">${t.icon}</div>
+  d.className = 'tcard ' + cls;
+  d.innerHTML = `<div class="trow"><div class="ticon" aria-hidden="true">${t.icon}</div>
     <div class="tbody"><div class="ttitle">${esc(t.title)}</div>
-    <span class="badge"><span class="dot"></span>${st.txt}</span></div></div>
+    <span class="badge"><span class="dot" aria-hidden="true"></span>${st.txt}</span></div></div>
     <div class="prog"><i style="width:${Math.round(donePct*100)}%"></i></div>
     <div class="tfoot"><span class="cap">Hạn ${fmt(t.nextDueAt)} · chu kỳ ${t.cycleDays} ngày</span>
-    <button class="donebtn" title="Đánh dấu xong">✓ Xong</button></div>`;
+    <button class="donebtn" title="Đánh dấu xong" aria-label="Đánh dấu xong: ${esc(t.title)}">✓ Xong</button></div>`;
   d.onclick = (e) => { if (!e.target.closest('.donebtn')) location.hash = '#/detail/' + encodeURIComponent(t.id); };
   d.querySelector('.donebtn').onclick = () => doDone(t.id);
   return d;
@@ -91,14 +91,15 @@ function card(t, now) {
 function renderDetail(v, id) {
   const d = load(), t = d.tasks.find((x) => x.id === id);
   if (!t) { v.innerHTML = `<main><div class="empty"><p>Không tìm thấy.</p><a href="#/">Về trang chủ</a></div></main>`; return; }
-  const st = statusOf(t), c = colorOf(st.s);
+  const st = statusOf(t);
+  const cls = st.s === 'overdue' ? 'st-over' : (st.s === 'dueGrace' || st.s === 'dueToday') ? 'st-due' : st.s === 'upcoming' ? 'st-warn' : 'st-ok';
   v.innerHTML = `<main><a class="back" href="#/">← Trang chủ</a>
-    <div class="dhero" style="--uc:${c}"><div class="big">${t.icon}</div><h2>${esc(t.title)}</h2><p>${st.txt} · Hạn ${fmt(t.nextDueAt)}</p></div>
+    <div class="dhero ${cls}"><div class="big">${t.icon}</div><h2>${esc(t.title)}</h2><p>${st.txt} · Hạn ${fmt(t.nextDueAt)}</p></div>
     <div class="kv">
       <div><span>Lần cuối làm</span><b>${t.lastDoneAt ? fmt(t.lastDoneAt) : 'chưa ghi'}</b></div>
       <div><span>Chu kỳ</span><b>${t.cycleDays} ngày</b></div>
       <div><span>Nhắc trước</span><b>${t.remindBefore} ngày</b></div>
-      <div><span>Trạng thái</span><b style="color:${c}">${st.txt}</b></div>
+      <div><span>Trạng thái</span><b class="st-txt">${st.txt}</b></div>
     </div>
     <button class="cta" id="done">✓ Đánh dấu đã xong</button>
     <div class="row" style="margin-top:10px"><button class="ghost" id="snz">Hoãn 1 ngày</button><button class="ghost" id="edit">Sửa</button></div>
@@ -113,10 +114,10 @@ function renderForm(v, editId) {
   v.innerHTML = `<main><a class="back" href="#/">← Trang chủ</a><h2 style="margin:4px 0 2px">${t ? 'Sửa việc' : 'Thêm việc mới'}</h2>
     <small class="mut">Chỉ cần gõ tên là xong — chu kỳ mặc định 7 ngày.</small>
     <form class="fcard" id="f" style="margin-top:12px">
-    <label class="fl">Tên việc</label><input id="title" required maxlength="60" placeholder="VD: Dọn toilet" value="${esc(t?.title || '')}">
-    <div class="row"><div><label class="fl">Icon</label><select id="icon">${['🧹','🚽','🛏️','🪥','💧','🌱','🧊','🛵','💊','🦷'].map((e)=>`<option ${t?.icon===e?'selected':''}>${e}</option>`).join('')}</select></div>
-    <div><label class="fl">Chu kỳ (ngày)</label><input id="cycle" type="number" min="1" max="730" value="${t?.cycleDays || 7}"></div></div>
-    <div class="row"><div><label class="fl">Lần cuối</label><input id="last" type="date" value="${t?.lastDoneAt ? iso(t.lastDoneAt) : iso(Date.now())}"></div><div><label class="fl">Nhắc trước</label><input id="rb" type="number" min="0" max="30" value="${t?.remindBefore ?? 2}"></div></div>
+    <label class="fl" for="title">Tên việc</label><input id="title" required maxlength="60" placeholder="VD: Dọn toilet" value="${esc(t?.title || '')}">
+    <div class="row"><div><label class="fl" for="icon">Icon</label><select id="icon">${['🧹','🚽','🛏️','🪥','💧','🌱','🧊','🛵','💊','🦷'].map((e)=>`<option ${t?.icon===e?'selected':''}>${e}</option>`).join('')}</select></div>
+    <div><label class="fl" for="cycle">Chu kỳ (ngày)</label><input id="cycle" type="number" min="1" max="730" value="${t?.cycleDays || 7}"></div></div>
+    <div class="row"><div><label class="fl" for="last">Lần cuối</label><input id="last" type="date" value="${t?.lastDoneAt ? iso(t.lastDoneAt) : iso(Date.now())}"></div><div><label class="fl" for="rb">Nhắc trước</label><input id="rb" type="number" min="0" max="30" value="${t?.remindBefore ?? 2}"></div></div>
     <button class="cta" type="submit">Lưu việc</button></form></main>`;
   $('#f').onsubmit = (e) => {
     e.preventDefault();

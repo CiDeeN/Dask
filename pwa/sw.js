@@ -1,5 +1,5 @@
 /* Service Worker — App shell cache-first, versioned. */
-const CACHE = 'nhac-viec-v2';
+const CACHE = 'nhac-viec-v3';
 const SHELL = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', (e) => {
