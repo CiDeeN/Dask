@@ -1,0 +1,46 @@
+name: habit_reminder
+description: App nhắc việc chu kỳ (thay bàn chải 90 ngày, dọn toilet 7 ngày) - Flutter MVP.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.2.0 <4.0.0"
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+  riverpod: ^2.5.1
+
+  # Local DB (Drift = sqlite)
+  drift: ^2.20.0
+  sqlite3_flutter_libs: ^0.5.0
+  path_provider: ^2.1.2
+  path: ^1.9.0
+
+  # Navigation
+  go_router: ^14.0.0
+
+  # Notifications + background
+  flutter_local_notifications: ^17.0.0
+  workmanager: ^0.5.2
+  timezone: ^0.9.2
+
+  # Utils
+  intl: ^0.19.0
+  uuid: ^4.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  drift_dev: ^2.20.0
+  build_runner: ^2.4.9
+
+flutter:
+  uses-material-design: true
