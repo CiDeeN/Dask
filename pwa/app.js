@@ -55,15 +55,16 @@ function renderHome(v) {
     return filter === 'all' || (filter === 'over' && (s === 'overdue' || s === 'dueGrace')) || (filter === 'up' && (s === 'upcoming' || s === 'dueToday')) || (filter === 'ok' && s === 'ok');
   });
   const fcount = (k) => k === 'all' ? tasks.length : k === 'over' ? over : k === 'up' ? up : tasks.length - over - up;
-  v.innerHTML = `<header class="hero"><div class="topbar"><div class="logo">🧹</div>
-    <div><h1>Việc nhà định kỳ</h1><p>${tasks.length ? `${over} quá hạn · ${up} sắp tới` : 'Bắt đầu trong 30 giây!'}</p></div>
-    <button class="bell" id="notif" title="Bật nhắc việc">🔔</button></div>
-    <div class="stats"><div class="stat"><b>${tasks.length}</b><span>Theo dõi</span></div><div class="stat"><b>${over}</b><span>Quá hạn</span></div><div class="stat"><b>${up}</b><span>Sắp tới</span></div></div></header>
+  const today = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'numeric' });
+  v.innerHTML = `<header class="hero"><div class="topbar"><div class="logo" aria-hidden="true"></div>
+    <div><h1>Nhắc việc</h1><p>${today}${tasks.length ? ` · ${over} quá hạn · ${up} sắp tới` : ''}</p></div>
+    <button class="bell" id="notif" title="Bật nhắc việc" aria-label="Bật nhắc việc">🔔</button></div>
+    <div class="stats"><div class="stat"><b>${tasks.length}</b><span>Theo dõi</span></div><div class="stat${over ? ' alert' : ''}"><b>${over}</b><span>Quá hạn</span></div><div class="stat"><b>${up}</b><span>Sắp tới</span></div></div></header>
     <main><div class="sec"><h3>Danh sách</h3><small>${list.length} việc</small></div>
     <div class="filters">${[['all','Tất cả'],['over','Quá hạn'],['up','Sắp tới'],['ok','An toàn']].map(([k,l]) => `<button class="chip${filter===k?' on':''}" data-f="${k}">${l}<span class="chip-n">${fcount(k)}</span></button>`).join('')}</div>
     <div id="list">${list.length ? '' : `<div class="empty"><div class="big">🏡</div><p><b>Nhà đang gọn!</b><br><small class="mut">Chọn mẫu bên dưới hoặc bấm + để thêm việc.</small></p></div>`}</div>
     <div class="sec"><h3>Mẫu có sẵn</h3><small>chạm để thêm</small></div>
-    <div class="tplgrid">${TEMPLATES.map((t,i)=>`<div class="tpl" data-t="${i}"><span class="e">${t[1]}</span><div><b>${t[0]}</b><br><small class="mut">${t[2]} ngày · ${t[3]}</small></div></div>`).join('')}</div></main>
+    <div class="tplgrid">${TEMPLATES.map((t,i)=>`<div class="tpl" data-t="${i}"><span class="e">${t[1]}</span><div><b>${t[0]}</b><small class="mut">${t[2]} ngày · ${t[3]}</small></div></div>`).join('')}</div></main>
     <button class="fab" id="add">＋ Thêm việc</button>`;
   v.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filter = b.dataset.f; render(); });
   $('#add').onclick = () => location.hash = '#/form';
