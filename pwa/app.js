@@ -50,42 +50,55 @@ function renderHome(v) {
   const sts = tasks.map((t) => statusOf(t, now));
   const over = sts.filter((s) => s.s === 'overdue' || s.s === 'dueGrace').length;
   const up = sts.filter((s) => s.s === 'upcoming' || s.s === 'dueToday').length;
-  const list = tasks.filter((t, i) => {
-    const s = sts[i].s;
-    return filter === 'all' || (filter === 'over' && (s === 'overdue' || s === 'dueGrace')) || (filter === 'up' && (s === 'upcoming' || s === 'dueToday')) || (filter === 'ok' && s === 'ok');
-  });
-  const fcount = (k) => k === 'all' ? tasks.length : k === 'over' ? over : k === 'up' ? up : tasks.length - over - up;
   const today = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'numeric' });
   v.innerHTML = `<header class="hero"><div class="topbar"><div class="logo" aria-hidden="true"></div>
-    <div><h1>Nhắc việc</h1><p>${today}${tasks.length ? ` · ${over} quá hạn · ${up} sắp tới` : ''}</p></div>
-    <button class="bell" id="notif" title="Bật nhắc việc" aria-label="Bật nhắc việc">🔔</button></div>
-    <div class="stats"><div class="stat"><b>${tasks.length}</b><span>Theo dõi</span></div><div class="stat${over ? ' alert' : ''}"><b>${over}</b><span>Quá hạn</span></div><div class="stat"><b>${up}</b><span>Sắp tới</span></div></div></header>
-    <main><div class="sec"><h3>Danh sách</h3><small>${list.length} việc</small></div>
-    <div class="filters">${[['all','Tất cả'],['over','Quá hạn'],['up','Sắp tới'],['ok','An toàn']].map(([k,l]) => `<button class="chip${filter===k?' on':''}" data-f="${k}">${l}<span class="chip-n">${fcount(k)}</span></button>`).join('')}</div>
-    <div id="list">${list.length ? '' : `<div class="empty"><div class="big">🏡</div><p><b>Nhà đang gọn!</b><br><small class="mut">Chọn mẫu bên dưới hoặc bấm + để thêm việc.</small></p></div>`}</div>
+    <div><h1>Nhắc việc</h1><p style="text-transform:capitalize">${today}${tasks.length ? ` · ${over} quá hạn · ${up} sắp tới` : ''}</p></div>
+    <button class="bell" id="notif" title="Bật nhắc việc" aria-label="Bật nhắc việc">🔔</button></div></header>
+    <main><div id="list"></div>
     <div class="sec"><h3>Mẫu có sẵn</h3><small>chạm để thêm</small></div>
     <div class="tplgrid">${TEMPLATES.map((t,i)=>`<div class="tpl" data-t="${i}"><span class="e">${t[1]}</span><div><b>${t[0]}</b><small class="mut">${t[2]} ngày · ${t[3]}</small></div></div>`).join('')}</div></main>
-    <button class="fab" id="add">＋ Thêm việc</button>`;
-  v.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filter = b.dataset.f; render(); });
+    <nav class="tabs" aria-label="Điều hướng">
+      <button class="tab${filter === 'all' ? ' on' : ''}" data-tab="all">🗂<span>Việc</span></button>
+      <button class="tab${filter === 'up' ? ' on' : ''}" data-tab="up">⏳<span>Sắp tới</span></button>
+      <button class="plus" id="add" aria-label="Thêm việc">＋</button>
+      <button class="tab${filter === 'over' ? ' on' : ''}" data-tab="over">⚠<span>Quá hạn</span>${over ? `<i class="n">${over}</i>` : ''}</button>
+      <button class="tab${filter === 'ok' ? ' on' : ''}" data-tab="ok">✓<span>Ổn</span></button>
+    </nav>`;
+  v.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { filter = b.dataset.tab; render(); });
   $('#add').onclick = () => location.hash = '#/form';
   $('#notif').onclick = enableNotif;
   v.querySelectorAll('[data-t]').forEach((el) => el.onclick = () => addFromTemplate(+el.dataset.t));
   const box = v.querySelector('#list');
-  list.forEach((t) => box.appendChild(card(t, now)));
+  const GKEY = (s) => (s === 'overdue' || s === 'dueGrace') ? 'over' : s === 'dueToday' ? 'today' : s === 'upcoming' ? 'up' : 'ok';
+  const GROUPS = [['over', 'Quá hạn'], ['today', 'Hôm nay'], ['up', 'Sắp tới'], ['ok', 'Sau này']];
+  const show = (g) => filter === 'all' || (filter === 'over' && g === 'over') || (filter === 'up' && (g === 'up' || g === 'today')) || (filter === 'ok' && g === 'ok');
+  const items = tasks.map((t, i) => ({ t, s: sts[i] })).filter((x) => show(GKEY(x.s.s)));
+  if (!items.length) box.innerHTML = `<div class="empty"><div class="big">🏡</div><p><b>Trống!</b><br><small class="mut">Chọn mẫu bên dưới hoặc bấm ＋ để thêm việc.</small></p></div>`;
+  GROUPS.forEach(([g, label]) => {
+    const rows = items.filter((x) => GKEY(x.s.s) === g);
+    if (!rows.length) return;
+    const sec = document.createElement('section');
+    sec.className = 'group';
+    sec.innerHTML = `<div class="ghead"><span>${label}</span><span class="gcount">${rows.length}</span></div><div class="gbody"></div>`;
+    const body = sec.querySelector('.gbody');
+    rows.forEach((x) => body.appendChild(card(x.t, now)));
+    box.appendChild(sec);
+  });
 }
 function card(t, now) {
   const st = statusOf(t, now);
   const cls = st.s === 'overdue' ? 'st-over' : (st.s === 'dueGrace' || st.s === 'dueToday') ? 'st-due' : st.s === 'upcoming' ? 'st-warn' : 'st-ok';
-  const donePct = st.diff < 0 ? 1 : Math.min(1, Math.max(0, (t.cycleDays - st.diff) / t.cycleDays));
   const d = document.createElement('div');
   d.className = 'tcard ' + cls;
-  d.innerHTML = `<div class="trow"><div class="ticon" aria-hidden="true">${t.icon}</div>
+  d.setAttribute('role', 'button');
+  d.setAttribute('tabindex', '0');
+  const flag = st.s === 'overdue' ? '🚩 ' : '';
+  d.innerHTML = `<button class="cbox donebtn" aria-label="Đánh dấu xong: ${esc(t.title)}"></button>
     <div class="tbody"><div class="ttitle">${esc(t.title)}</div>
-    <span class="badge"><span class="dot" aria-hidden="true"></span>${st.txt}</span></div></div>
-    <div class="prog"><i style="width:${Math.round(donePct*100)}%"></i></div>
-    <div class="tfoot"><span class="cap">Hạn ${fmt(t.nextDueAt)} · chu kỳ ${t.cycleDays} ngày</span>
-    <button class="donebtn" title="Đánh dấu xong" aria-label="Đánh dấu xong: ${esc(t.title)}">✓ Xong</button></div>`;
-  d.onclick = (e) => { if (!e.target.closest('.donebtn')) location.hash = '#/detail/' + encodeURIComponent(t.id); };
+    <div class="meta"><span class="mdate">${flag}Hạn ${fmt(t.nextDueAt)} · ${st.txt}</span><span class="mdot">·</span><span>${t.icon} ${t.cycleDays} ngày/lần</span></div></div>`;
+  const open = () => location.hash = '#/detail/' + encodeURIComponent(t.id);
+  d.onclick = (e) => { if (!e.target.closest('.donebtn')) open(); };
+  d.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('.donebtn')) { e.preventDefault(); open(); } };
   d.querySelector('.donebtn').onclick = () => doDone(t.id);
   return d;
 }
