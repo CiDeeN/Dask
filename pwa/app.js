@@ -88,7 +88,7 @@ function markDone(t, now = Date.now()) {
   return { ...t, lastDoneAt: now, nextDueAt: nextDue(now, t.cycleDays), snoozedUntil: null, status: st };
 }
 
-let filter = 'all';
+let filter = 'all', tab = 'today';
 function sorted() {
   const { tasks } = load();
   return tasks.filter((t) => t.isActive !== false).sort((a, b) => a.nextDueAt - b.nextDueAt);
@@ -99,78 +99,127 @@ function render() {
   if (h.startsWith('#/detail/')) return renderDetail(v, decodeURIComponent(h.slice(9)));
   if (h.startsWith('#/account')) return renderAccount(v);
   if (h.startsWith('#/form')) return renderForm(v, new URLSearchParams(h.split('?')[1] || '').get('edit'));
+  if (h.startsWith('#/items')) { tab = 'items'; return renderItems(v); }
+  if (h.startsWith('#/activity')) { tab = 'activity'; return renderActivity(v); }
+  tab = 'today';
   return renderHome(v);
 }
-function renderHome(v) {
-  const tasks = sorted(), now = Date.now();
-  const sts = tasks.map((t) => statusOf(t, now));
-  const over = sts.filter((s) => s.s === 'overdue' || s.s === 'dueGrace').length;
-  const up = sts.filter((s) => s.s === 'upcoming' || s.s === 'dueToday').length;
-  const today = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'numeric' });
-  v.innerHTML = `<header class="hero"><div class="topbar"><div class="logo" aria-hidden="true"></div>
-    <div><h1>Nhắc việc</h1><p style="text-transform:capitalize">${today}${tasks.length ? ` · ${over} quá hạn · ${up} sắp tới` : ''}</p></div>
-    <button class="userbtn" id="account" aria-label="Tài khoản">👤</button>
-    <button class="bell" id="notif" title="Bật nhắc việc" aria-label="Bật nhắc việc">🔔</button></div></header>
-    <main><div id="list"></div>
-    <div class="sec"><h3>Mẫu có sẵn</h3><small>chạm để thêm</small></div>
-    <div class="tplgrid">${TEMPLATES.map((t,i)=>`<div class="tpl" data-t="${i}"><span class="e">${t[1]}</span><div><b>${t[0]}</b><small class="mut">${t[2]} ngày · ${t[3]}</small></div></div>`).join('')}</div></main>
-    <nav class="tabs" aria-label="Điều hướng">
-      <button class="tab${filter === 'all' ? ' on' : ''}" data-tab="all">🗂<span>Việc</span></button>
-      <button class="tab${filter === 'up' ? ' on' : ''}" data-tab="up">⏳<span>Sắp tới</span></button>
-      <button class="plus" id="add" aria-label="Thêm việc">＋</button>
-      <button class="tab${filter === 'over' ? ' on' : ''}" data-tab="over">⚠<span>Quá hạn</span>${over ? `<i class="n">${over}</i>` : ''}</button>
-      <button class="tab${filter === 'ok' ? ' on' : ''}" data-tab="ok">✓<span>Ổn</span></button>
-    </nav>`;
-  v.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { filter = b.dataset.tab; render(); });
+// "2 days" / "1 day" / "3 wks" — đúng như ảnh tham chiếu.
+function fmtSpan(d) {
+  if (d <= 0) return 'Hôm nay';
+  if (d < 28) return `${d} day${d === 1 ? '' : 's'}`;
+  const w = Math.round(d / 7);
+  return `${w} wk${w === 1 ? '' : 's'}`;
+}
+function fmtLate(d) { return `${d} day${d === 1 ? '' : 's'} late`; }
+function tabbar(active) {
+  return `<nav class="tabbar" aria-label="Điều hướng">
+    <button class="tab${active === 'today' ? ' on' : ''}" data-go="#/">🏠<span>Today</span></button>
+    <button class="tab${active === 'items' ? ' on' : ''}" data-go="#/items">☰<span>Items</span></button>
+    <button class="tab${active === 'activity' ? ' on' : ''}" data-go="#/activity">📊<span>Activity</span></button>
+  </nav>`;
+}
+function bindTabs(v) { v.querySelectorAll('[data-go]').forEach((b) => b.onclick = () => location.hash = b.dataset.go); }
+function header(v, title, sub) {
+  v.insertAdjacentHTML('afterbegin', `<header class="top"><div><h1>${title}</h1><p>${sub}</p></div>
+    <button class="iconbtn" id="account" aria-label="Tài khoản">👤</button>
+    <button class="iconbtn" id="notif" aria-label="Bật nhắc việc">🔔</button>
+    <button class="addbtn" id="add" aria-label="Thêm việc">＋</button></header>`);
   $('#add').onclick = () => location.hash = '#/form';
   $('#account').onclick = () => location.hash = '#/account';
   $('#notif').onclick = enableNotif;
-  v.querySelectorAll('[data-t]').forEach((el) => el.onclick = () => addFromTemplate(+el.dataset.t));
-  const box = v.querySelector('#list');
-  const GKEY = (s) => (s === 'overdue' || s === 'dueGrace') ? 'over' : s === 'dueToday' ? 'today' : s === 'upcoming' ? 'up' : 'ok';
-  const GROUPS = [['over', 'Quá hạn'], ['today', 'Hôm nay'], ['up', 'Sắp tới'], ['ok', 'Sau này']];
-  const show = (g) => filter === 'all' || (filter === 'over' && g === 'over') || (filter === 'up' && (g === 'up' || g === 'today')) || (filter === 'ok' && g === 'ok');
-  const items = tasks.map((t, i) => ({ t, s: sts[i] })).filter((x) => show(GKEY(x.s.s)));
-  if (!items.length) box.innerHTML = `<div class="empty"><div class="big">🏡</div><p><b>Trống!</b><br><small class="mut">Chọn mẫu bên dưới hoặc bấm ＋ để thêm việc.</small></p></div>`;
-  GROUPS.forEach(([g, label]) => {
-    const rows = items.filter((x) => GKEY(x.s.s) === g);
-    if (!rows.length) return;
-    const sec = document.createElement('section');
-    sec.className = 'group';
-    sec.innerHTML = `<div class="ghead"><span>${label}</span><span class="gcount">${rows.length}</span></div><div class="gbody"></div>`;
-    const body = sec.querySelector('.gbody');
-    rows.forEach((x) => body.appendChild(card(x.t, now)));
-    box.appendChild(sec);
-  });
 }
-function card(t, now) {
-  const st = statusOf(t, now);
-  const cls = st.s === 'overdue' ? 'st-over' : (st.s === 'dueGrace' || st.s === 'dueToday') ? 'st-due' : st.s === 'upcoming' ? 'st-warn' : 'st-ok';
-  const d = document.createElement('div');
-  d.className = 'tcard ' + cls;
-  d.setAttribute('role', 'button');
-  d.setAttribute('tabindex', '0');
-  d.innerHTML = `<button class="cbox donebtn" aria-label="Đánh dấu xong: ${esc(t.title)}"></button>
-    <div class="tbody"><div class="ttitle">${esc(t.title)}</div>
-    <div class="meta"><span class="mdate">Hạn ${fmt(t.nextDueAt)} · ${st.txt}</span><span class="mdot">·</span><span>mỗi ${t.cycleDays} ngày</span></div></div>`;
-  const open = () => location.hash = '#/detail/' + encodeURIComponent(t.id);
-  d.onclick = (e) => { if (!e.target.closest('.donebtn')) open(); };
-  d.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('.donebtn')) { e.preventDefault(); open(); } };
-  d.querySelector('.donebtn').onclick = () => doDone(t.id);
-  return d;
+
+// ── Tab Today: NEXT UP + lưới 2 cột + OVERDUE ──
+function renderHome(v) {
+  const tasks = sorted(), now = Date.now();
+  const all = tasks.map((t) => ({ t, s: statusOf(t, now) }));
+  const late = all.filter((x) => x.s.s === 'overdue' || x.s.s === 'dueGrace').sort((a, b) => a.s.diff - b.s.diff);
+  const soon = all.filter((x) => x.s.diff >= 0);
+  const next = soon[0];
+  const grid = soon.slice(1, 5);
+  const over = soon.slice(5);
+
+  v.innerHTML = '';
+  header(v, 'Today', late.length ? `${late.length} việc cần xử lý ngay` : 'Small swaps. A fresher home.');
+  const wrap = document.createElement('main');
+  wrap.innerHTML = `
+    ${next ? `<section class="next"><div class="row"><div class="thumb">${next.t.icon}</div>
+      <div><h2>${esc(next.t.title)}</h2><p class="due">Due in</p></div></div>
+      <div class="big">${fmtSpan(next.s.diff)}</div>
+      <button class="mark" id="markNext">Mark as done</button></section>` : ''}
+    ${grid.length ? `<div class="grid">${grid.map((x) => tile(x)).join('')}</div>` : ''}
+    ${over.length ? `<div class="lbl">Sắp tới nữa</div><div class="grid">${over.map((x) => tile(x)).join('')}</div>` : ''}
+    ${late.length ? `<div class="lbl">Overdue</div><div class="list">${late.map((x) => overdueRow(x)).join('')}</div>` : ''}
+    ${!tasks.length ? `<div class="empty"><div class="big">🏡</div><p><b>Chưa có việc nào</b><br><small class="mut">Chạm ＋ để thêm hoặc chọn mẫu bên dưới.</small></p></div>` : ''}
+    <div class="lbl">Mẫu có sẵn</div>
+    <div class="list">${TEMPLATES.map((t, i) => `<div class="row-i" data-t="${i}"><span class="e">${t[1]}</span>
+      <span class="t">${t[0]}</span><span class="s" style="color:var(--muted);font-weight:600">${t[2]} ngày</span></div>`).join('')}</div>`;
+  v.appendChild(wrap);
+  v.insertAdjacentHTML('beforeend', tabbar('today'));
+  bindTabs(v);
+  if (next) $('#markNext').onclick = () => doDone(next.t.id, true);
+  v.querySelectorAll('[data-t]').forEach((el) => el.onclick = () => addFromTemplate(+el.dataset.t));
+  v.querySelectorAll('[data-open]').forEach((el) => el.onclick = () => location.hash = '#/detail/' + encodeURIComponent(el.dataset.open));
+}
+function tile(x) {
+  return `<div class="tile" role="button" tabindex="0" data-open="${esc(x.t.id)}">
+    <div class="topr"><span class="e">${x.t.icon}</span><span class="chev">›</span></div>
+    <b>${esc(x.t.title)}</b><span class="d">${fmtSpan(x.s.diff)}</span></div>`;
+}
+function overdueRow(x) {
+  return `<div class="row-i" role="button" tabindex="0" data-open="${esc(x.t.id)}"><span class="e">${x.t.icon}</span>
+    <span class="t">${esc(x.t.title)}</span><span class="s">${fmtLate(-x.s.diff)}</span><span class="chev">›</span></div>`;
+}
+
+// ── Tab Items: toàn bộ danh sách ──
+function renderItems(v) {
+  const tasks = sorted(), now = Date.now();
+  const all = tasks.map((t) => ({ t, s: statusOf(t, now) }));
+  v.innerHTML = '';
+  header(v, 'Items', `${tasks.length} việc đang theo dõi`);
+  const wrap = document.createElement('main');
+  wrap.innerHTML = all.length
+    ? `<div class="lbl">Tất cả</div><div class="grid">${all.map((x) => tile(x)).join('')}</div>`
+    : `<div class="empty"><div class="big">📋</div><p><b>Chưa có việc nào</b><br><small class="mut">Chạm ＋ để thêm.</small></p></div>`;
+  v.appendChild(wrap);
+  v.insertAdjacentHTML('beforeend', tabbar('items'));
+  bindTabs(v);
+  v.querySelectorAll('[data-open]').forEach((el) => el.onclick = () => location.hash = '#/detail/' + encodeURIComponent(el.dataset.open));
+}
+
+// ── Tab Activity: lịch sử làm gần nhất ──
+function renderActivity(v) {
+  const { tasks } = load();
+  const done = tasks.filter((t) => t.lastDoneAt).sort((a, b) => b.lastDoneAt - a.lastDoneAt).slice(0, 30);
+  const now = Date.now();
+  v.innerHTML = '';
+  header(v, 'Activity', `${done.length} lần hoàn thành gần đây`);
+  const wrap = document.createElement('main');
+  wrap.innerHTML = done.length
+    ? `<div class="list">${done.map((t) => {
+        const ago = Math.floor((now - t.lastDoneAt) / DAY);
+        return `<div class="row-i" role="button" tabindex="0" data-open="${esc(t.id)}"><span class="e">${t.icon}</span>
+          <span class="t">${esc(t.title)}</span><span class="s" style="color:var(--muted);font-weight:600">${ago === 0 ? 'Hôm nay' : ago === 1 ? 'Hôm qua' : ago + ' ngày trước'}</span></div>`;
+      }).join('')}</div>`
+    : `<div class="empty"><div class="big">📊</div><p><b>Chưa có hoạt động</b><br><small class="mut">Đánh dấu "Mark as done" để ghi lại lịch sử.</small></p></div>`;
+  v.appendChild(wrap);
+  v.insertAdjacentHTML('beforeend', tabbar('activity'));
+  bindTabs(v);
+  v.querySelectorAll('[data-open]').forEach((el) => el.onclick = () => location.hash = '#/detail/' + encodeURIComponent(el.dataset.open));
 }
 function renderDetail(v, id) {
   const d = load(), t = d.tasks.find((x) => x.id === id);
   if (!t) { v.innerHTML = `<main><div class="empty"><p>Không tìm thấy.</p><a href="#/">Về trang chủ</a></div></main>`; return; }
   const st = statusOf(t);
-  const cls = st.s === 'overdue' ? 'st-over' : (st.s === 'dueGrace' || st.s === 'dueToday') ? 'st-due' : st.s === 'upcoming' ? 'st-warn' : 'st-ok';
+  const span = st.diff < 0 ? fmtLate(-st.diff) : fmtSpan(st.diff);
   v.innerHTML = `<main><a class="back" href="#/">← Trang chủ</a>
-    <div class="dhero ${cls}"><div class="big">${t.icon}</div><h2>${esc(t.title)}</h2><p>${st.txt} · Hạn ${fmt(t.nextDueAt)}</p></div>
+    <div class="dhero"><div class="e">${t.icon}</div><h2>${esc(t.title)}</h2><p>${span}</p></div>
     <div class="kv">
       <div><span>Lần cuối làm</span><b>${t.lastDoneAt ? fmt(t.lastDoneAt) : 'chưa ghi'}</b></div>
       <div><span>Chu kỳ</span><b>${t.cycleDays} ngày</b></div>
       <div><span>Nhắc trước</span><b>${t.remindBefore} ngày</b></div>
-      <div><span>Trạng thái</span><b class="st-txt">${st.txt}</b></div>
+      <div><span>Trạng thái</span><b>${span} · hạn ${fmt(t.nextDueAt)}</b></div>
     </div>
     <button class="cta" id="done">✓ Đánh dấu đã xong</button>
     <div class="row" style="margin-top:10px"><button class="ghost" id="snz">Hoãn 1 ngày</button><button class="ghost" id="edit">Sửa</button></div>
