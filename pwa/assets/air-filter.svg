@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <pattern id="mesh" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="7" stroke="#CFC8BB" stroke-width="2.2"/>
+    </pattern>
+  </defs>
+  <rect x="15" y="6" width="34" height="52" rx="3" fill="#FBF9F5"/>
+  <rect x="15" y="6" width="34" height="52" rx="3" fill="url(#mesh)"/>
+  <rect x="15" y="6" width="34" height="52" rx="3" fill="none" stroke="#B9B1A2" stroke-width="2.5"/>
+  <rect x="19" y="10" width="26" height="44" rx="1.5" fill="none" stroke="#D6CFC1" stroke-width="1.5"/>
+</svg>

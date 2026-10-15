@@ -5,14 +5,14 @@ const VAPID_PUBLIC = 'BH9R5rTTi21USFRWsV-0RYkxjz-V5_siaqDpi7qLSBb4WBpvXb9n-sH5jM
 const $ = (s) => document.querySelector(s);
 
 const TEMPLATES = [
-  ['Dọn toilet','🚽',7,'Cọ bồn cầu, lavabo mỗi tuần.'],['Giặt ga giường','🛏️',14,'Tránh mạt bụi gây dị ứng.'],
-  ['Lau nhà','🧹',3,'Quét + lau bếp, lối đi.'],['Giặt rèm cửa','👕',90,'Hút bụi thanh treo.'],
-  ['Tẩy lồng giặt','🧺',30,'Chạy chế độ vệ sinh lồng.'],['Vệ sinh máy lạnh','🌬️',90,'Rửa lưới lọc.'],
-  ['Thay bàn chải','🪥',90,'Tránh vi khuẩn tích tụ.'],['Thay lõi lọc nước','💧',180,'Theo khuyến cáo hãng.'],
-  ['Cắt tóc','💇',30,'Tỉa định kỳ.'],['Tẩy giun','💊',180,'6 tháng/lần cả nhà.'],
-  ['Khám răng','🦷',180,'Cạo vôi định kỳ.'],['Tưới cây','🌱',2,'Tưới sáng sớm.'],
-  ['Dọn tủ lạnh','🧊',7,'Bỏ đồ hết hạn.'],['Thay nhớt xe','🛵',45,'Kiểm tra thắng, lốp.'],
-  ['Vệ sinh nệm','🛋️',60,'Hút bụi, phơi nắng.'],
+  ['Dọn toilet','toilet',7,'Cọ bồn cầu, lavabo mỗi tuần.'],['Giặt ga giường','bed',14,'Tránh mạt bụi gây dị ứng.'],
+  ['Lau nhà','broom',3,'Quét + lau bếp, lối đi.'],['Giặt rèm cửa','curtain',90,'Hút bụi thanh treo.'],
+  ['Tẩy lồng giặt','washer',30,'Chạy chế độ vệ sinh lồng.'],['Vệ sinh máy lạnh','ac',90,'Rửa lưới lọc.'],
+  ['Thay bàn chải','toothbrush',90,'Tránh vi khuẩn tích tụ.'],['Thay lõi lọc nước','water-filter',180,'Theo khuyến cáo hãng.'],
+  ['Cắt tóc','scissors',30,'Tỉa định kỳ.'],['Tẩy giun','pill',180,'6 tháng/lần cả nhà.'],
+  ['Khám răng','tooth',180,'Cạo vôi định kỳ.'],['Tưới cây','plant',2,'Tưới sáng sớm.'],
+  ['Dọn tủ lạnh','fridge',7,'Bỏ đồ hết hạn.'],['Thay nhớt xe','scooter',45,'Kiểm tra thắng, lốp.'],
+  ['Vệ sinh nệm','mattress',60,'Hút bụi, phơi nắng.'],
 ];
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || { tasks: [] }; } catch { return { tasks: [] }; } };
@@ -122,8 +122,8 @@ function tabbar(active) {
 function bindTabs(v) { v.querySelectorAll('[data-go]').forEach((b) => b.onclick = () => location.hash = b.dataset.go); }
 function header(v, title, sub) {
   v.insertAdjacentHTML('afterbegin', `<header class="top"><div><h1>${title}</h1><p>${sub}</p></div>
-    <button class="iconbtn" id="account" aria-label="Tài khoản">👤</button>
-    <button class="iconbtn" id="notif" aria-label="Bật nhắc việc">🔔</button>
+    <button class="iconbtn" id="account" aria-label="Tài khoản">${artImg('user', 'ico', 'Tài khoản')}</button>
+    <button class="iconbtn" id="notif" aria-label="Bật nhắc việc">${artImg('bell', 'ico', 'Bật nhắc')}</button>
     <button class="addbtn" id="add" aria-label="Thêm việc">＋</button></header>`);
   $('#add').onclick = () => location.hash = '#/form';
   $('#account').onclick = () => location.hash = '#/account';
@@ -144,16 +144,16 @@ function renderHome(v) {
   header(v, 'Today', late.length ? `${late.length} việc cần xử lý ngay` : 'Small swaps. A fresher home.');
   const wrap = document.createElement('main');
   wrap.innerHTML = `
-    ${next ? `<section class="next"><div class="row"><div class="thumb">${next.t.icon}</div>
+    ${next ? `<section class="next"><div class="row"><div class="thumb">${artImg(next.t.icon, 'art', next.t.title)}</div>
       <div><h2>${esc(next.t.title)}</h2><p class="due">Due in</p></div></div>
       <div class="big">${fmtSpan(next.s.diff)}</div>
       <button class="mark" id="markNext">Mark as done</button></section>` : ''}
     ${grid.length ? `<div class="grid">${grid.map((x) => tile(x)).join('')}</div>` : ''}
     ${over.length ? `<div class="lbl">Sắp tới nữa</div><div class="grid">${over.map((x) => tile(x)).join('')}</div>` : ''}
     ${late.length ? `<div class="lbl">Overdue</div><div class="list">${late.map((x) => overdueRow(x)).join('')}</div>` : ''}
-    ${!tasks.length ? `<div class="empty"><div class="big">🏡</div><p><b>Chưa có việc nào</b><br><small class="mut">Chạm ＋ để thêm hoặc chọn mẫu bên dưới.</small></p></div>` : ''}
+    ${!tasks.length ? `<div class="empty"><div class="big">{artImg('default', 'ico', 'Chua co viec')}</div><p><b>Chưa có việc nào</b><br><small class="mut">Chạm ＋ để thêm hoặc chọn mẫu bên dưới.</small></p></div>` : ''}
     <div class="lbl">Mẫu có sẵn</div>
-    <div class="list">${TEMPLATES.map((t, i) => `<div class="row-i" data-t="${i}"><span class="e">${t[1]}</span>
+    <div class="list">${TEMPLATES.map((t, i) => `<div class="row-i" data-t="${i}"><span class="e">${artImg(t[1], 'art', t[0])}</span>
       <span class="t">${t[0]}</span><span class="s" style="color:var(--muted);font-weight:600">${t[2]} ngày</span></div>`).join('')}</div>`;
   v.appendChild(wrap);
   v.insertAdjacentHTML('beforeend', tabbar('today'));
@@ -164,11 +164,11 @@ function renderHome(v) {
 }
 function tile(x) {
   return `<div class="tile" role="button" tabindex="0" data-open="${esc(x.t.id)}">
-    <div class="topr"><span class="e">${x.t.icon}</span><span class="chev">›</span></div>
+    <div class="topr"><span class="e">${artImg(x.t.icon, 'art', x.t.title)}</span><span class="chev">›</span></div>
     <b>${esc(x.t.title)}</b><span class="d">${fmtSpan(x.s.diff)}</span></div>`;
 }
 function overdueRow(x) {
-  return `<div class="row-i" role="button" tabindex="0" data-open="${esc(x.t.id)}"><span class="e">${x.t.icon}</span>
+  return `<div class="row-i" role="button" tabindex="0" data-open="${esc(x.t.id)}"><span class="e">${artImg(x.t.icon, 'art', x.t.title)}</span>
     <span class="t">${esc(x.t.title)}</span><span class="s">${fmtLate(-x.s.diff)}</span><span class="chev">›</span></div>`;
 }
 
@@ -181,7 +181,7 @@ function renderItems(v) {
   const wrap = document.createElement('main');
   wrap.innerHTML = all.length
     ? `<div class="lbl">Tất cả</div><div class="grid">${all.map((x) => tile(x)).join('')}</div>`
-    : `<div class="empty"><div class="big">📋</div><p><b>Chưa có việc nào</b><br><small class="mut">Chạm ＋ để thêm.</small></p></div>`;
+    : `<div class="empty"><div class="big">{artImg('default', 'ico', 'Chua co viec')}</div><p><b>Chưa có việc nào</b><br><small class="mut">Chạm ＋ để thêm.</small></p></div>`;
   v.appendChild(wrap);
   v.insertAdjacentHTML('beforeend', tabbar('items'));
   bindTabs(v);
@@ -199,10 +199,10 @@ function renderActivity(v) {
   wrap.innerHTML = done.length
     ? `<div class="list">${done.map((t) => {
         const ago = Math.floor((now - t.lastDoneAt) / DAY);
-        return `<div class="row-i" role="button" tabindex="0" data-open="${esc(t.id)}"><span class="e">${t.icon}</span>
+        return `<div class="row-i" role="button" tabindex="0" data-open="${esc(t.id)}"><span class="e">${artImg(t.icon, 'art', t.title)}</span>
           <span class="t">${esc(t.title)}</span><span class="s" style="color:var(--muted);font-weight:600">${ago === 0 ? 'Hôm nay' : ago === 1 ? 'Hôm qua' : ago + ' ngày trước'}</span></div>`;
       }).join('')}</div>`
-    : `<div class="empty"><div class="big">📊</div><p><b>Chưa có hoạt động</b><br><small class="mut">Đánh dấu "Mark as done" để ghi lại lịch sử.</small></p></div>`;
+    : `<div class="empty"><div class="big">{artImg('default', 'ico', 'Chua co hoat dong')}</div><p><b>Chưa có hoạt động</b><br><small class="mut">Đánh dấu "Mark as done" để ghi lại lịch sử.</small></p></div>`;
   v.appendChild(wrap);
   v.insertAdjacentHTML('beforeend', tabbar('activity'));
   bindTabs(v);
@@ -214,7 +214,7 @@ function renderDetail(v, id) {
   const st = statusOf(t);
   const span = st.diff < 0 ? fmtLate(-st.diff) : fmtSpan(st.diff);
   v.innerHTML = `<main><a class="back" href="#/">← Trang chủ</a>
-    <div class="dhero"><div class="e">${t.icon}</div><h2>${esc(t.title)}</h2><p>${span}</p></div>
+    <div class="dhero"><div class="e">${artImg(t.icon, 'art', t.title)}</div><h2>${esc(t.title)}</h2><p>${span}</p></div>
     <div class="kv">
       <div><span>Lần cuối làm</span><b>${t.lastDoneAt ? fmt(t.lastDoneAt) : 'chưa ghi'}</b></div>
       <div><span>Chu kỳ</span><b>${t.cycleDays} ngày</b></div>
@@ -231,14 +231,22 @@ function renderDetail(v, id) {
 }
 function renderForm(v, editId) {
   const d = load(), t = editId ? d.tasks.find((x) => x.id === editId) : null;
+  const cur = ART[t && t.icon] ? t.icon : 'default';
   v.innerHTML = `<main><a class="back" href="#/">← Trang chủ</a><h2 style="margin:4px 0 2px">${t ? 'Sửa việc' : 'Thêm việc mới'}</h2>
     <small class="mut">Chỉ cần gõ tên là xong — chu kỳ mặc định 7 ngày.</small>
     <form class="fcard" id="f" style="margin-top:12px">
     <label class="fl" for="title">Tên việc</label><input id="title" required maxlength="60" placeholder="VD: Dọn toilet" value="${esc(t?.title || '')}">
-    <div class="row"><div><label class="fl" for="icon">Icon</label><select id="icon">${['🧹','🚽','🛏️','🪥','💧','🌱','🧊','🛵','💊','🦷'].map((e)=>`<option ${t?.icon===e?'selected':''}>${e}</option>`).join('')}</select></div>
-    <div><label class="fl" for="cycle">Chu kỳ (ngày)</label><input id="cycle" type="number" min="1" max="730" value="${t?.cycleDays || 7}"></div></div>
-    <div class="row"><div><label class="fl" for="last">Lần cuối</label><input id="last" type="date" value="${t?.lastDoneAt ? iso(t.lastDoneAt) : iso(Date.now())}"></div><div><label class="fl" for="rb">Nhắc trước</label><input id="rb" type="number" min="0" max="30" value="${t?.remindBefore ?? 2}"></div></div>
+    <div class="fl" id="iconlbl">Hình ảnh</div>
+    <input type="hidden" id="icon" value="${cur}">
+    <div class="picker" role="radiogroup" aria-labelledby="iconlbl">${ART_KEYS.map((k) => `<button type="button" class="pk${k === cur ? ' on' : ''}" data-k="${k}" role="radio" aria-checked="${k === cur}">${artImg(k, 'art', k)}</button>`).join('')}</div>
+    <div class="row"><div><label class="fl" for="cycle">Chu kỳ (ngày)</label><input id="cycle" type="number" min="1" max="730" value="${t?.cycleDays || 7}"></div>
+    <div><label class="fl" for="last">Lần cuối</label><input id="last" type="date" value="${t?.lastDoneAt ? iso(t.lastDoneAt) : iso(Date.now())}"></div></div>
+    <div class="row"><div><label class="fl" for="rb">Nhắc trước (ngày)</label><input id="rb" type="number" min="0" max="30" value="${t?.remindBefore ?? 2}"></div></div>
     <button class="cta" type="submit">Lưu việc</button></form></main>`;
+  v.querySelectorAll('.pk').forEach((b) => b.onclick = () => {
+    $('#icon').value = b.dataset.k;
+    v.querySelectorAll('.pk').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
+  });
   $('#f').onsubmit = (e) => {
     e.preventDefault();
     const title = $('#title').value.trim(); if (!title) return;

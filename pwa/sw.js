@@ -1,6 +1,11 @@
 /* Service Worker — App shell cache-first, versioned. */
-const CACHE = 'nhac-viec-v8';
-const SHELL = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icon.svg'];
+const CACHE = 'nhac-viec-v10';
+const SHELL = ['./', './index.html', './styles.css', './app.js', './assets.js', './manifest.webmanifest', './icon.svg',
+  './assets/air-filter.svg', './assets/bed.svg', './assets/toothbrush.svg', './assets/water-filter.svg',
+  './assets/smoke-alarm.svg', './assets/pillow.svg', './assets/sponge.svg', './assets/toilet.svg',
+  './assets/broom.svg', './assets/curtain.svg', './assets/washer.svg', './assets/ac.svg', './assets/scissors.svg',
+  './assets/pill.svg', './assets/tooth.svg', './assets/plant.svg', './assets/fridge.svg', './assets/scooter.svg',
+  './assets/mattress.svg', './assets/bell.svg', './assets/user.svg', './assets/default.svg'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
